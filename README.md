@@ -73,3 +73,17 @@ swapped without changing `GameController`
 listens and updates visuals accordingly
 
 ## Folder Structure
+```
+Assets/
+└── Scripts/
+    ├── GameLogic/    ← Pure C# logic classes
+    ├── AI/           ← AI interface and strategy
+    ├── UI/           ← MonoBehaviours and scene controllers
+    └── Tests/        ← NUnit tests
+```
+
+## Platform-Specific Features
+
+- **Standalone:** Quit button visible, larger title text
+- **WebGL:** Quit button hidden, optimised text sizing
+- **Android:** Smaller text for mobile screens, mobile notice shown
