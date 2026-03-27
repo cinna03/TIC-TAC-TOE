@@ -1,16 +1,18 @@
-using UnityEngine;
+// AI/IAIStrategy.cs
+// Interface for all AI strategies.
+// Using the Strategy Pattern allows different AI behaviours
+// to be swapped in without changing the game manager.
 
-public class IAIStrategy : MonoBehaviour
+using GameLogic;
+
+namespace AI
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public interface IAIStrategy
     {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
+        /// <summary>
+        /// Given the current board state, returns the index (0-8)
+        /// of the cell the AI wants to play.
+        /// </summary>
+        int GetAIMove(CellState[] boardState);
     }
 }
