@@ -1,147 +1,75 @@
-# Tic-Tac-Toe — Unity Assignment
+# Tic-Tac-Toe — Unity Game
 
-A complete, cross-platform Tic-Tac-Toe game built in Unity with clean OOP architecture, AI opponent, NUnit tests, and platform-specific UI.
+A complete Tic-Tac-Toe game built in Unity with Human vs Human and Human vs AI modes.
 
 ---
 
 ## How to Run
 
-### Prerequisites
-- Unity 2022 LTS or newer (URP or Built-In RP both work)
-- TextMeshPro package (install via Package Manager if prompted)
-
-### Steps
 1. Clone this repository
-2. Open the project in Unity Hub → **Open Project**
-3. In **Build Settings** add scenes in this order:
-   - `Assets/Scenes/MainMenuScene`
-   - `Assets/Scenes/SettingsScene`
-   - `Assets/Scenes/GameScene`
-4. Press **Play** from `MainMenuScene` to start
+2. Open the project in Unity 6 (LTS)
+3. Open the `MainMenu` scene from `Assets/Scenes/`
+4. Press Play — or build for your target platform
 
-### Running Tests
-1. Open **Window → General → Test Runner**
-2. Select **Edit Mode**
-3. Click **Run All** — all tests should pass with green ticks
+### Build Links
+- PC Build: [link here]
+- WebGL Build: [link here]
+- Android Build: [link here]
 
 ---
 
-## Scenes
+## Class Structure
 
-| Scene | Purpose |
-|-------|---------|
-| `MainMenuScene` | Entry point — Play and Settings buttons, Quit (hidden on WebGL) |
-| `SettingsScene` | Dropdown (mode), Slider (AI difficulty), Toggle (sound), Haptic toggle (mobile only) |
-| `GameScene` | 3×3 grid gameplay, AI opponent, strikethroughs, win/draw detection, Reload |
+### GameLogic/ (Pure C# — no Unity dependency)
+| Class | Responsibility |
+|-------|---------------|
+| `BoardState` | Stores the 9-cell grid state, handles placing marks and resetting |
+| `TurnManager` | Tracks whose turn it is (X or O) and switches between players |
+| `WinChecker` | Checks all 8 winning patterns and detects draw conditions |
+| `GameSettings` | Static container that carries settings (mode, difficulty, sound) across scenes |
 
----
+### AI/
+| Class | Responsibility |
+|-------|---------------|
+| `IAIStrategy` | Interface defining the `GetAIMove()` contract for all AI strategies |
+| `RuleBasedAIStrategy` | Implements the rule-based AI algorithm (win → block → random) |
 
-## Folder / Class Structure
-
-```
-Assets/Scripts/
-├── GameLogic/              ← Pure C# — no Unity dependency
-│   ├── CellState.cs        Enum: Empty | X | O
-│   ├── GameResult.cs       Enum: InProgress | WinX | WinO | Draw
-│   ├── WinLine.cs          Struct: three cell indices that form a win
-│   ├── BoardState.cs       3×3 board — PlaceSymbol, CheckWinner, IsBoardFull, Reset
-│   ├── TurnManager.cs      Tracks current player, SwitchTurn, Reset
-│   └── GameSettings.cs     DontDestroyOnLoad singleton — Mode, AIDiff, SoundEnabled
-│
-├── AI/
-│   ├── IAIStrategy.cs      Interface: int GetAIMove(CellState[] board, CellState aiSymbol)
-│   └── RuleBasedAIStrategy.cs  Win → Block → Random algorithm (see below)
-│
-├── UI/                     ← MonoBehaviours — only touch Unity API
-│   ├── GameController.cs       Owns BoardState + TurnManager; fires C# events
-│   ├── GridCellUI.cs           Single cell button — SetSymbol, ResetCell, OnClicked event
-│   ├── BoardCellObserver.cs    Bridges OnCellPlaced/OnBoardReset → GridCellUI[]
-│   ├── StatusUI.cs             Updates title text on turn change / game over
-│   ├── StrikethroughUI.cs      Activates correct strikethrough GameObject on win
-│   ├── SoundManager.cs         Plays audio clips; respects SoundEnabled setting
-│   ├── MainMenuController.cs   Play / Settings / Quit button callbacks
-│   ├── SettingsController.cs   Reads UI controls → writes GameSettings; platform UI
-│   ├── QuitButtonVisibility.cs #if UNITY_WEBGL hides Quit; #if UNITY_ANDROID adds back-button
-│   └── SceneBootstrapper.cs    Creates default GameSettings if scene loaded directly
-│
-└── Tests/
-    ├── TicTacToe.Tests.asmdef
-    └── BoardStateTests.cs      20+ NUnit tests (see Test Coverage below)
-```
-
----
-
-## Design Patterns Used
-
-### Strategy Pattern — AI
-`IAIStrategy` defines a single method `GetAIMove(...)`. `RuleBasedAIStrategy` implements it. `GameController` holds an `IAIStrategy` reference and never knows the concrete type. Swapping to a Minimax AI requires only:
-```csharp
-_aiStrategy = new MinimaxAIStrategy();
-```
-
-### Observer Pattern — UI Updates
-`GameController` exposes C# events:
-```
-OnCellPlaced(int index, CellState symbol)
-OnGameOver(GameResult result, int strikethroughIndex)
-OnTurnChanged(CellState currentPlayer)
-OnBoardReset()
-```
-UI classes (`StatusUI`, `StrikethroughUI`, `BoardCellObserver`, `SoundManager`) subscribe to these events. Game logic never calls into Unity UI code — the dependency arrow points one way only.
-
-### Singleton — GameSettings
-`GameSettings` uses `DontDestroyOnLoad` so settings chosen in `SettingsScene` survive the scene transition into `GameScene`.
+### UI/ (MonoBehaviours — Unity dependent)
+| Class | Responsibility |
+|-------|---------------|
+| `GameController` | Orchestrates the Game scene, connects logic classes to UI |
+| `CellView` | Attached to each cell button, displays marks and handles clicks |
+| `MainMenuController` | Handles Main Menu navigation and platform-specific UI |
+| `SettingsController` | Reads UI controls and writes values into GameSettings |
 
 ---
 
 ## AI Algorithm
 
-The `RuleBasedAIStrategy` follows a strict three-step priority chain every turn:
+The AI opponent uses a rule-based strategy implemented through the `IAIStrategy` 
+interface and `RuleBasedAIStrategy` class. On each turn, the AI evaluates the 
+board in three sequential steps:
 
-**Step 1 — Win Check**
-Iterate all 8 winning lines. For each line, count how many cells the AI already owns. If the AI has exactly 2 of 3 cells in a line and the third cell is empty → play that cell immediately and win.
+1. **Win:** Scan all 8 winning patterns to check whether the AI can win 
+immediately by completing a line of three. If a winning move exists, take it.
 
-**Step 2 — Block Check** *(Hard difficulty only)*
-Repeat the same scan for the opponent. If the opponent has exactly 2 of 3 cells in a line and the third is empty → play that cell to prevent their win.
+2. **Block:** If no winning move is available, perform the same scan for the 
+human player's mark to detect and block any immediate threats.
 
-**Step 3 — Random Fallback**
-Collect all empty cells into a list and return one at random.
+3. **Random:** If neither condition applies, select a random cell from the 
+remaining empty cells.
 
-**Difficulty levels:**
-| Level | Win Check | Block Check | Fallback |
-|-------|-----------|-------------|---------|
-| Easy  | ✗ | ✗ | ✓ random |
-| Medium | ✓ | ✗ | ✓ random |
-| Hard  | ✓ | ✓ | ✓ random |
-
----
-
-## Platform-Specific UI
-
-| Platform | Behaviour |
-|---------|-----------|
-| `UNITY_WEBGL` | Quit button hidden; haptic toggle hidden |
-| `UNITY_ANDROID` | Back hardware button quits; haptic toggle shown |
-| `UNITY_STANDALONE` | Quit button shown; haptic toggle hidden |
-
-Implemented in `QuitButtonVisibility.cs` and `SettingsController.cs` using `#if` directives.
+This design guarantees the AI never overlooks an obvious win or block, while 
+the interface-based structure allows alternative strategies (e.g. Minimax) to 
+be swapped in without modifying the game manager.
 
 ---
 
-## Test Coverage
+## Design Patterns Used
 
-| Test Class | What's Tested |
-|-----------|--------------|
-| `BoardStateTests` | Empty board not full, full board detection, all 3 rows win (X & O), all 3 columns win, both diagonals, no winner on partial board, draw on full no-winner board, InProgress on empty board, PlaceSymbol throws on occupied cell, Reset clears all cells |
-| `TurnManagerTests` | Starts with X, switches to O, switches back to X, Reset restores X |
-| `AIStrategyTests` | Hard AI takes win (row), Hard AI takes win (diagonal), Hard AI blocks human win (column), Hard AI blocks human win (row), Hard AI prefers win over block, Easy AI returns valid empty cell, Medium AI takes available win |
+- **Strategy Pattern** — `IAIStrategy` interface allows AI behaviour to be 
+swapped without changing `GameController`
+- **Observer Pattern** — Logic classes report state changes, `GameController` 
+listens and updates visuals accordingly
 
----
-
-## Builds
-
-| Platform | Link |
-|---------|------|
-| PC (Windows) | *(add your build link here)* |
-| Android APK | *(add your build link here)* |
-| WebGL (Unity Play) | *(add your Unity Play link here)* |
+## Folder Structure
